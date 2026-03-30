@@ -43,12 +43,12 @@ public class Main {
                 String email = scanner.nextLine();
 
                 System.out.print("Enter Department: ");
-                String dept = scanner.nextLine();
+                String department = scanner.nextLine();
 
                 System.out.print("Enter Type (LOCAL/INTERNATIONAL/SCHOLARSHIP): ");
                 String type = scanner.nextLine();
 
-                system.students.add(new Student(id, name, email, dept, type));
+                system.students.add(new Student(id, name, email, department, type));
                 System.out.println("Student added.");
 
             } else if (choice == 2) {
@@ -87,70 +87,70 @@ public class Main {
                 String name = scanner.nextLine();
 
                 System.out.print("Enter Department: ");
-                String dept = scanner.nextLine();
+                String department = scanner.nextLine();
 
                 System.out.print("Enter Maximum Teaching Load: ");
                 int maxLoad = Integer.parseInt(scanner.nextLine());
 
-                system.instructors.add(new Instructor(id, name, dept, maxLoad));
+                system.instructors.add(new Instructor(id, name, department, maxLoad));
                 System.out.println("Instructor added.");
 
             } else if (choice == 4) {
                 System.out.print("Enter Student ID: ");
-                String sid = scanner.nextLine();
+                String studentId = scanner.nextLine();
 
                 System.out.print("Enter Course Code: ");
-                String ccode = scanner.nextLine();
+                String courseCode = scanner.nextLine();
 
                 System.out.print("Enter Semester: ");
-                String sem = scanner.nextLine();
+                String semester = scanner.nextLine();
 
                 System.out.print("Enter Payment Type (CARD/CASH/BANK/INSTALLMENT): ");
                 String pay = scanner.nextLine();
 
-                system.enrollStudent(sid, ccode, sem, pay);
+                system.enrollStudent(studentId, courseCode, semester, pay);
 
             } else if (choice == 5) {
                 System.out.print("Enter Student ID: ");
-                String sid = scanner.nextLine();
+                String studentId = scanner.nextLine();
 
                 System.out.print("Enter Course Code: ");
-                String ccode = scanner.nextLine();
+                String courseCode = scanner.nextLine();
 
                 System.out.print("Enter Semester: ");
-                String sem = scanner.nextLine();
+                String semester = scanner.nextLine();
 
                 System.out.print("Enter Grade (A/B/C/D/F): ");
                 String grade = scanner.nextLine();
 
-                system.assignGrade(sid, ccode, sem, grade);
+                system.assignGrade(studentId, courseCode, semester, grade);
 
             } else if (choice == 6) {
                 System.out.print("Enter Student ID: ");
-                String sid = scanner.nextLine();
+                String studentId = scanner.nextLine();
 
                 System.out.print("Enter Amount: ");
                 double amount = Double.parseDouble(scanner.nextLine());
 
                 System.out.print("Enter Method (CARD/BANK/CASH): ");
-                String method = scanner.nextLine();
+                String paymentMethod = scanner.nextLine();
 
-                system.processPayment(sid, amount, method);
+                system.processPayment(studentId, amount, paymentMethod);
 
             } else if (choice == 7) {
                 System.out.print("Enter Student ID: ");
-                String sid = scanner.nextLine();
-                system.printTranscript(sid);
+                String studentId = scanner.nextLine();
+                system.printTranscript(studentId);
 
             } else if (choice == 8) {
                 System.out.print("Enter Course Code: ");
-                String ccode = scanner.nextLine();
-                system.printCourseRoster(ccode);
+                String courseCode = scanner.nextLine();
+                system.printCourseRoster(courseCode);
 
             } else if (choice == 9) {
                 System.out.print("Enter Department Code (e.g., CS, SE, IT): ");
-                String dept = scanner.nextLine();
-                system.printDepartmentSummary(dept);
+                String department = scanner.nextLine();
+                system.printDepartmentSummary(department);
 
             } else if (choice == 10) {
                 system.sendWarningLetters();
