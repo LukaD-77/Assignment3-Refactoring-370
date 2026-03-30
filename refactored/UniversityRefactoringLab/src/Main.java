@@ -19,10 +19,13 @@ public class Main {
                 case 4: enrollStudent(scanner, system); break;
                 case 5: assignGrade(scanner, system); break;
                 case 6: processPayment(scanner, system); break;
-                case 7: viewTranscript(scanner, system); break;
-                case 8: viewCourseRoster(scanner, system); break;
-                case 9: viewDepartmentSummary(scanner, system); break;
-                case 10: system.sendWarningLetters(); break;
+                case 7: viewTranscript(scanner, system, printer); break;
+                case 8: viewCourseRoster(scanner, system, printer); break;
+                case 9: viewDepartmentSummary(scanner, system, printer); break;
+                case 10:
+                    String result = system.sendWarningLetters();
+                    System.out.println(result);
+                    break;
                 case 11: printer.printStudents(system.getStudents()); break;
                 case 12: printer.printCourses(system.getCourses()); break;
                 case 13: printer.printPayments(system.getPayments()); break;
@@ -128,7 +131,8 @@ public class Main {
         System.out.print("Enter Payment Type (CARD/CASH/BANK/INSTALLMENT): ");
         String pay = scanner.nextLine();
 
-        system.enrollStudent(studentId, courseCode, semester, pay);
+        String result = system.enrollStudent(studentId, courseCode, semester, pay);
+        System.out.println(result);
     }
 
     private static void assignGrade(Scanner scanner, UniversitySystem system) {
@@ -141,7 +145,8 @@ public class Main {
         System.out.print("Enter Grade (A/B/C/D/F): ");
         String grade = scanner.nextLine();
 
-        system.assignGrade(studentId, courseCode, semester, grade);
+        String result = system.assignGrade(studentId, courseCode, semester, grade);
+        System.out.println(result);
     }
 
     private static void processPayment(Scanner scanner, UniversitySystem system) {
@@ -152,24 +157,25 @@ public class Main {
         System.out.print("Enter Method (CARD/BANK/CASH): ");
         String paymentMethod = scanner.nextLine();
 
-        system.processPayment(studentId, amount, paymentMethod);
+        String result = system.processPayment(studentId, amount, paymentMethod);
+        System.out.println(result);
     }
 
-    private static void viewTranscript(Scanner scanner, UniversitySystem system) {
+    private static void viewTranscript(Scanner scanner, UniversitySystem system, LegacyReportPrinter printer) {
         System.out.print("Enter Student ID: ");
         String studentId = scanner.nextLine();
-        system.printTranscript(studentId);
+        printer.printTranscript(system, studentId);
     }
 
-    private static void viewCourseRoster(Scanner scanner, UniversitySystem system) {
+    private static void viewCourseRoster(Scanner scanner, UniversitySystem system, LegacyReportPrinter printer) {
         System.out.print("Enter Course Code: ");
         String courseCode = scanner.nextLine();
-        system.printCourseRoster(courseCode);
+        printer.printCourseRoster(system, courseCode);
     }
 
-    private static void viewDepartmentSummary(Scanner scanner, UniversitySystem system) {
+    private static void viewDepartmentSummary(Scanner scanner, UniversitySystem system, LegacyReportPrinter printer) {
         System.out.print("Enter Department Code (e.g., CS, SE, IT): ");
         String department = scanner.nextLine();
-        system.printDepartmentSummary(department);
+        printer.printDepartmentSummary(system, department);
     }
 }

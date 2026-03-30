@@ -59,6 +59,8 @@ public class UniversitySystem {
     public List<Student> getStudents() { return students; }
     public List<Course> getCourses() { return courses; }
     public List<PaymentRecord> getPayments() { return payments; }
+    public List<Enrollment> getEnrollments() { return enrollments; }
+    public List<Instructor> getInstructors() { return instructors; }
 
     private boolean isValidEmail(String email) {
         return email != null && email.contains("@") && email.contains(".");
@@ -137,26 +139,23 @@ public class UniversitySystem {
         return amount - DISCOUNT_DEFAULT;
     }
 
-    public void enrollStudent(String studentId, String courseCode, String semester, String paymentType) {
+    public String enrollStudent(String studentId, String courseCode, String semester, String paymentType) {
         Student student = findStudent(studentId);
         Course course = findCourse(courseCode);
 
         if (student == null) {
-            System.out.println("Student not found");
             logs.add("Student not found: " + studentId);
-            return;
+            return "Error: Student not found.";
         }
 
         if (course == null) {
-            System.out.println("Course not found");
             logs.add("Course not found: " + courseCode);
-            return;
+            return "Error: Course not found.";
         }
 
         if (student.isBlocked()) {
-            System.out.println("Student is blocked");
             logs.add("Blocked student tried enrollment");
-            return;
+            return "Error: Student is blocked.";
         }
 
         if (student.getStatus().equals(STATUS_PROBATION)) {
@@ -167,34 +166,29 @@ public class UniversitySystem {
                 }
             }
             if (count >= PROBATION_COURSE_LIMIT) {
-                System.out.println("Probation student cannot register more than " + PROBATION_COURSE_LIMIT + " courses");
                 logs.add("Probation limit reached");
-                return;
+                return "Error: Probation student cannot register for more than " + PROBATION_COURSE_LIMIT + " courses.";
             }
         }
 
         if (course.getEnrolled() >= course.getCapacity()) {
-            System.out.println("Course is full");
             logs.add("Course full: " + courseCode);
-            return;
+            return "Error: Course is full.";
         }
 
         if (student.getOutstandingBalance() > MAX_UNPAID_BALANCE) {
-            System.out.println("Student has unpaid balance");
             logs.add("Balance issue for " + student.getId());
-            return;
+            return "Error: Student has unpaid balance.";
         }
 
         if (hasScheduleConflict(studentId, course, semester)) {
-            System.out.println("Schedule conflict");
             logs.add("Conflict for " + studentId);
-            return;
+            return "Error: Schedule conflict detected.";
         }
 
         if (!hasPassedPrerequisite(studentId, course.getPrerequisite())) {
-            System.out.println("Missing prerequisite");
             logs.add("Missing prerequisite for " + studentId);
-            return;
+            return "Error: Missing prerequisite for the course.";
         }
 
         double fee = calculateEnrollmentFee(student, course, paymentType, semester);
@@ -204,27 +198,29 @@ public class UniversitySystem {
         enrollments.add(newEnrollment);
         course.incrementEnrollment();
 
-        System.out.println("Enrollment completed");
-        System.out.println("Student: " + student.getName());
-        System.out.println("Course: " + course.getTitle());
-        System.out.println("Semester: " + semester);
-        System.out.println("Fee charged: " + fee);
+        StringBuilder response = new StringBuilder();
+        response.append("Enrollment completed.\n");
+        response.append("Student: ").append(student.getName()).append("\n");
+        response.append("Course: ").append(course.getTitle()).append("\n");
+        response.append("Semester: ").append(semester).append("\n");
+        response.append("Fee charged: $").append(fee);
         logs.add("Enrolled " + studentId + " into " + courseCode);
 
         if (isValidEmail(student.getEmail())) {
-            System.out.println("Email sent to " + student.getEmail() + ": enrolled in " + course.getTitle());
+            response.append("\nEmail sent to ").append(student.getEmail()).append(": enrolled in ").append(course.getTitle());
             logs.add("Enrollment email sent");
         } else {
-            System.out.println("Invalid email");
+            response.append("\nInvalid email. Could not send notification.");
             logs.add("Invalid email for " + student.getId());
         }
+
+        return response.toString();
     }
 
-    public void assignGrade(String studentId, String courseCode, String semester, String grade) {
+    public String assignGrade(String studentId, String courseCode, String semester, String grade) {
         for (Enrollment currentEnrollment : enrollments) {
             if (currentEnrollment.getStudentId().equals(studentId) && currentEnrollment.getCourseCode().equals(courseCode) && currentEnrollment.getSemester().equals(semester)) {
                 currentEnrollment.setGrade(grade);
-                System.out.println("Grade assigned");
 
                 double points = getGradePoints(grade);
                 Student student = findStudent(studentId);
@@ -236,30 +232,32 @@ public class UniversitySystem {
 
                     updateStudentAcademicStatus(student);
 
-                    System.out.println("Updated GPA: " + student.getGpa());
-                    System.out.println("Updated Status: " + student.getStatus());
+                    StringBuilder response = new StringBuilder();
+                    response.append("Grade assigned successfully.\n");
+                    response.append("Updated GPA: ").append(student.getGpa()).append("\n");
+                    response.append("Updated Status: ").append(student.getStatus());
 
                     if (isValidEmail(student.getEmail())) {
-                        System.out.println("Email sent to " + student.getEmail() + ": grade posted");
+                        response.append("\nEmail sent to ").append(student.getEmail()).append(": grade posted");
                     } else {
-                        System.out.println("Could not send grade email");
+                        response.append("\nCould not send grade email.");
                     }
+                    return response.toString();
                 }
             }
         }
+        return "Error: Enrollment record not found.";
     }
 
-    public void processPayment(String studentId, double amount, String method) {
+    public String processPayment(String studentId, double amount, String method) {
         Student student = findStudent(studentId);
 
         if (student == null) {
-            System.out.println("Student not found");
-            return;
+            return "Error: Student not found.";
         }
 
         if (amount <= 0) {
-            System.out.println("Invalid payment");
-            return;
+            return "Error: Invalid payment amount.";
         }
 
         amount = calculateFinalPaymentAmount(amount, method);
@@ -271,118 +269,45 @@ public class UniversitySystem {
 
         payments.add(new PaymentRecord(studentId, amount, method, "PAID"));
 
-        System.out.println("Payment processed for " + student.getName());
-        System.out.println("Method: " + method);
-        System.out.println("Amount accepted: " + amount);
-        System.out.println("Remaining balance: " + student.getOutstandingBalance());
+        StringBuilder response = new StringBuilder();
+        response.append("Payment processed for ").append(student.getName()).append("\n");
+        response.append("Method: ").append(method).append("\n");
+        response.append("Amount accepted: $").append(amount).append("\n");
+        response.append("Remaining balance: $").append(student.getOutstandingBalance());
 
         if (isValidEmail(student.getEmail())) {
-            System.out.println("Email sent to " + student.getEmail() + ": payment received");
+            response.append("\nEmail sent to ").append(student.getEmail()).append(": payment received");
         }
+        return response.toString();
     }
 
-    public void printTranscript(String studentId) {
-        Student student = findStudent(studentId);
-        if (student == null) {
-            System.out.println("Student not found");
-            return;
-        }
-        System.out.println("----- TRANSCRIPT -----");
-        System.out.println("University: " + universityName);
-        System.out.println("Name: " + student.getName());
-        System.out.println("ID: " + student.getId());
-        System.out.println("Department: " + student.getDepartment());
-        System.out.println("Status: " + student.getStatus());
-        System.out.println("GPA: " + student.getGpa());
-        for (Enrollment currentEnrollment : enrollments) {
-            if (currentEnrollment.getStudentId().equals(studentId)) {
-                String title = "";
-                int credits = 0;
-                Course course = findCourse(currentEnrollment.getCourseCode());
-                if (course != null) {
-                    title = course.getTitle();
-                    credits = course.getCreditHours();
-                }
-                System.out.println(currentEnrollment.getCourseCode() + " - " + title + " - " + credits + " credits - Grade: " + currentEnrollment.getGrade());
-            }
-        }
-        System.out.println("Outstanding Balance: " + student.getOutstandingBalance());
-        if (student.getOutstandingBalance() > 0) {
-            System.out.println("WARNING: unpaid dues");
-        }
-    }
+    public String sendWarningLetters() {
+        StringBuilder response = new StringBuilder();
+        int sentCount = 0;
+        int failedCount = 0;
 
-    public void printCourseRoster(String courseCode) {
-        System.out.println("----- COURSE ROSTER -----");
-        Course currentCourse = findCourse(courseCode);
-        if (currentCourse != null) {
-            System.out.println("Course: " + currentCourse.getTitle());
-            System.out.println("Instructor: " + currentCourse.getInstructorName());
-            System.out.println("Capacity: " + currentCourse.getCapacity());
-            System.out.println("Enrolled: " + currentCourse.getEnrolled());
-        }
-        for (Enrollment currentEnrollment : enrollments) {
-            if (currentEnrollment.getCourseCode().equals(courseCode)) {
-                Student student = findStudent(currentEnrollment.getStudentId());
-                if (student != null) {
-                    System.out.println(student.getId() + " - " + student.getName() + " - " + student.getStatus());
-                }
-            }
-        }
-    }
-
-    public void printDepartmentSummary(String department) {
-        System.out.println("----- DEPARTMENT SUMMARY -----");
-        System.out.println("Department: " + department);
-        int studentCount = 0;
-        int instructorCount = 0;
-        int courseCount = 0;
-        double avgGpa = 0;
-        int gpaCount = 0;
-        for (Student currentStudent : students) {
-            if (currentStudent.getDepartment().equals(department)) {
-                studentCount++;
-                avgGpa += currentStudent.getGpa();
-                gpaCount++;
-            }
-        }
-        for (Instructor currentInstructor : instructors) {
-            if (currentInstructor.getDepartment().equals(department)) {
-                instructorCount++;
-            }
-        }
-        for (Course currentCourse : courses) {
-            if (currentCourse.getCode().startsWith(department)) {
-                courseCount++;
-            }
-        }
-        if (gpaCount > 0) {
-            avgGpa = avgGpa / gpaCount;
-        }
-        System.out.println("Students: " + studentCount);
-        System.out.println("Instructors: " + instructorCount);
-        System.out.println("Courses: " + courseCount);
-        System.out.println("Average GPA: " + avgGpa);
-    }
-
-    public void sendWarningLetters() {
         for (Student currentStudent : students) {
             if (currentStudent.getOutstandingBalance() > WARNING_BALANCE_THRESHOLD || currentStudent.getStatus().equals(STATUS_PROBATION)) {
                 if (isValidEmail(currentStudent.getEmail())) {
-                    System.out.println("Sending warning email to " + currentStudent.getEmail());
+                    response.append("Sending warning email to ").append(currentStudent.getEmail()).append(" - ");
                     if (currentStudent.getOutstandingBalance() > WARNING_BALANCE_THRESHOLD) {
-                        System.out.println("Reason: unpaid balance");
+                        response.append("Reason: Unpaid balance. ");
                     }
                     if (currentStudent.getStatus().equals(STATUS_PROBATION)) {
-                        System.out.println("Reason: academic probation");
+                        response.append("Reason: Academic probation.");
                     }
+                    response.append("\n");
                     logs.add("Warning sent to " + currentStudent.getId());
+                    sentCount++;
                 } else {
-                    System.out.println("Could not send warning to " + currentStudent.getName());
+                    response.append("Could not send warning to ").append(currentStudent.getName()).append(" (Invalid Email)\n");
                     logs.add("Warning failed for " + currentStudent.getId());
+                    failedCount++;
                 }
             }
         }
+        response.append("Summary: ").append(sentCount).append(" letters sent, ").append(failedCount).append(" failed.");
+        return response.toString();
     }
 
     public Student findStudent(String id) {

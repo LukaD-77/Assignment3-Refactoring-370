@@ -22,4 +22,103 @@ public class LegacyReportPrinter {
             System.out.println(course.getCode() + " | " + course.getTitle() + " | " + course.getInstructorName() + " | " + course.getCreditHours());
         }
     }
+
+    public void printTranscript(UniversitySystem system, String studentId) {
+        Student student = system.findStudent(studentId);
+        if (student == null) {
+            System.out.println("Error: Student not found.");
+            return;
+        }
+
+        System.out.println("----- TRANSCRIPT -----");
+        System.out.println("University: " + system.universityName);
+        System.out.println("Name: " + student.getName());
+        System.out.println("ID: " + student.getId());
+        System.out.println("Department: " + student.getDepartment());
+        System.out.println("Status: " + student.getStatus());
+        System.out.println("GPA: " + student.getGpa());
+
+        for (Enrollment currentEnrollment : system.getEnrollments()) {
+            if (currentEnrollment.getStudentId().equals(studentId)) {
+                String title = "";
+                int credits = 0;
+                Course course = system.findCourse(currentEnrollment.getCourseCode());
+                if (course != null) {
+                    title = course.getTitle();
+                    credits = course.getCreditHours();
+                }
+                System.out.println(currentEnrollment.getCourseCode() + " - " + title + " - " + credits + " credits - Grade: " + currentEnrollment.getGrade());
+            }
+        }
+
+        System.out.println("Outstanding Balance: $" + student.getOutstandingBalance());
+        if (student.getOutstandingBalance() > 0) {
+            System.out.println("WARNING: Unpaid dues");
+        }
+    }
+
+    public void printCourseRoster(UniversitySystem system, String courseCode) {
+        System.out.println("----- COURSE ROSTER -----");
+        Course currentCourse = system.findCourse(courseCode);
+
+        if (currentCourse != null) {
+            System.out.println("Course: " + currentCourse.getTitle());
+            System.out.println("Instructor: " + currentCourse.getInstructorName());
+            System.out.println("Capacity: " + currentCourse.getCapacity());
+            System.out.println("Enrolled: " + currentCourse.getEnrolled());
+        } else {
+            System.out.println("Error: Course not found.");
+            return;
+        }
+
+        System.out.println("-- Students --");
+        for (Enrollment currentEnrollment : system.getEnrollments()) {
+            if (currentEnrollment.getCourseCode().equals(courseCode)) {
+                Student student = system.findStudent(currentEnrollment.getStudentId());
+                if (student != null) {
+                    System.out.println(student.getId() + " - " + student.getName() + " - " + student.getStatus());
+                }
+            }
+        }
+    }
+
+    public void printDepartmentSummary(UniversitySystem system, String department) {
+        System.out.println("----- DEPARTMENT SUMMARY -----");
+        System.out.println("Department: " + department);
+
+        int studentCount = 0;
+        int instructorCount = 0;
+        int courseCount = 0;
+        double avgGpa = 0;
+        int gpaCount = 0;
+
+        for (Student currentStudent : system.getStudents()) {
+            if (currentStudent.getDepartment().equals(department)) {
+                studentCount++;
+                avgGpa += currentStudent.getGpa();
+                gpaCount++;
+            }
+        }
+
+        for (Instructor currentInstructor : system.getInstructors()) {
+            if (currentInstructor.getDepartment().equals(department)) {
+                instructorCount++;
+            }
+        }
+
+        for (Course currentCourse : system.getCourses()) {
+            if (currentCourse.getCode().startsWith(department)) {
+                courseCount++;
+            }
+        }
+
+        if (gpaCount > 0) {
+            avgGpa = avgGpa / gpaCount;
+        }
+
+        System.out.println("Students: " + studentCount);
+        System.out.println("Instructors: " + instructorCount);
+        System.out.println("Courses: " + courseCount);
+        System.out.println("Average GPA: " + avgGpa);
+    }
 }
