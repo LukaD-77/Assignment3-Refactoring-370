@@ -1,9 +1,11 @@
 public class NotificationService {
 
-    private UniversitySystem system;
+    public static final double WARNING_BALANCE_THRESHOLD = 500.0;
 
-    public NotificationService(UniversitySystem system) {
-        this.system = system;
+    private UniversityDatabase database;
+
+    public NotificationService(UniversityDatabase database) {
+        this.database = database;
     }
 
     public boolean isValidEmail(String email) {
@@ -15,22 +17,22 @@ public class NotificationService {
         int sentCount = 0;
         int failedCount = 0;
 
-        for (Student currentStudent : system.getStudents()) {
-            if (currentStudent.getOutstandingBalance() > UniversitySystem.WARNING_BALANCE_THRESHOLD || currentStudent.getStatus().equals(UniversitySystem.STATUS_PROBATION)) {
+        for (Student currentStudent : database.getStudents()) {
+            if (currentStudent.getOutstandingBalance() > WARNING_BALANCE_THRESHOLD || currentStudent.getStatus().equals(Student.STATUS_PROBATION)) {
                 if (isValidEmail(currentStudent.getEmail())) {
                     response.append("Sending warning email to ").append(currentStudent.getEmail()).append(" - ");
-                    if (currentStudent.getOutstandingBalance() > UniversitySystem.WARNING_BALANCE_THRESHOLD) {
+                    if (currentStudent.getOutstandingBalance() > WARNING_BALANCE_THRESHOLD) {
                         response.append("Reason: Unpaid balance. ");
                     }
-                    if (currentStudent.getStatus().equals(UniversitySystem.STATUS_PROBATION)) {
+                    if (currentStudent.getStatus().equals(Student.STATUS_PROBATION)) {
                         response.append("Reason: Academic probation.");
                     }
                     response.append("\n");
-                    system.getLogs().add("Warning sent to " + currentStudent.getId());
+                    database.getLogs().add("Warning sent to " + currentStudent.getId());
                     sentCount++;
                 } else {
                     response.append("Could not send warning to ").append(currentStudent.getName()).append(" (Invalid Email)\n");
-                    system.getLogs().add("Warning failed for " + currentStudent.getId());
+                    database.getLogs().add("Warning failed for " + currentStudent.getId());
                     failedCount++;
                 }
             }

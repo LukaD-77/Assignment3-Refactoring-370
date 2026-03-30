@@ -5,11 +5,12 @@ public class Main {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
 
-        UniversitySystem system = new UniversitySystem();
-        NotificationService notificationService = new NotificationService(system);
-        PaymentService paymentService = new PaymentService(system, notificationService);
-        EnrollmentService enrollmentService = new EnrollmentService(system, notificationService);
-        LegacyReportPrinter printer = new LegacyReportPrinter();
+        // Final Dependency Injection Setup
+        UniversityDatabase database = new UniversityDatabase();
+        NotificationService notificationService = new NotificationService(database);
+        PaymentService paymentService = new PaymentService(database, notificationService);
+        EnrollmentService enrollmentService = new EnrollmentService(database, notificationService);
+        ReportPrinter reportPrinter = new ReportPrinter();
 
         boolean running = true;
         while (running) {
@@ -17,22 +18,22 @@ public class Main {
             int choice = getUserChoice(scanner);
 
             switch (choice) {
-                case 1: addStudent(scanner, system); break;
-                case 2: addCourse(scanner, system); break;
-                case 3: addInstructor(scanner, system); break;
+                case 1: addStudent(scanner, database); break;
+                case 2: addCourse(scanner, database); break;
+                case 3: addInstructor(scanner, database); break;
                 case 4: enrollStudent(scanner, enrollmentService); break;
                 case 5: assignGrade(scanner, enrollmentService); break;
                 case 6: processPayment(scanner, paymentService); break;
-                case 7: viewTranscript(scanner, system, printer); break;
-                case 8: viewCourseRoster(scanner, system, printer); break;
-                case 9: viewDepartmentSummary(scanner, system, printer); break;
+                case 7: viewTranscript(scanner, database, reportPrinter); break;
+                case 8: viewCourseRoster(scanner, database, reportPrinter); break;
+                case 9: viewDepartmentSummary(scanner, database, reportPrinter); break;
                 case 10:
                     String result = notificationService.sendWarningLetters();
                     System.out.println(result);
                     break;
-                case 11: printer.printStudents(system.getStudents()); break;
-                case 12: printer.printCourses(system.getCourses()); break;
-                case 13: printer.printPayments(system.getPayments()); break;
+                case 11: reportPrinter.printStudents(database.getStudents()); break;
+                case 12: reportPrinter.printCourses(database.getCourses()); break;
+                case 13: reportPrinter.printPayments(database.getPayments()); break;
                 case 14:
                     System.out.println("Exiting system...");
                     running = false;
@@ -73,7 +74,7 @@ public class Main {
         }
     }
 
-    private static void addStudent(Scanner scanner, UniversitySystem system) {
+    private static void addStudent(Scanner scanner, UniversityDatabase database) {
         System.out.print("Enter Student ID: ");
         String id = scanner.nextLine();
         System.out.print("Enter Name: ");
@@ -85,11 +86,11 @@ public class Main {
         System.out.print("Enter Type (LOCAL/INTERNATIONAL/SCHOLARSHIP): ");
         String type = scanner.nextLine();
 
-        system.addStudent(new Student(id, name, email, department, type));
+        database.addStudent(new Student(id, name, email, department, type));
         System.out.println("Student added.");
     }
 
-    private static void addCourse(Scanner scanner, UniversitySystem system) {
+    private static void addCourse(Scanner scanner, UniversityDatabase database) {
         System.out.print("Enter Course Code: ");
         String code = scanner.nextLine();
         System.out.print("Enter Title: ");
@@ -107,11 +108,11 @@ public class Main {
         System.out.print("Enter Time Slot: ");
         String time = scanner.nextLine();
 
-        system.addCourse(new Course(code, title, instructor, credits, capacity, pre, day, time));
+        database.addCourse(new Course(code, title, instructor, credits, capacity, pre, day, time));
         System.out.println("Course added.");
     }
 
-    private static void addInstructor(Scanner scanner, UniversitySystem system) {
+    private static void addInstructor(Scanner scanner, UniversityDatabase database) {
         System.out.print("Enter Instructor ID: ");
         String id = scanner.nextLine();
         System.out.print("Enter Instructor Name: ");
@@ -121,7 +122,7 @@ public class Main {
         System.out.print("Enter Maximum Teaching Load: ");
         int maxLoad = Integer.parseInt(scanner.nextLine());
 
-        system.addInstructor(new Instructor(id, name, department, maxLoad));
+        database.addInstructor(new Instructor(id, name, department, maxLoad));
         System.out.println("Instructor added.");
     }
 
@@ -165,21 +166,21 @@ public class Main {
         System.out.println(result);
     }
 
-    private static void viewTranscript(Scanner scanner, UniversitySystem system, LegacyReportPrinter printer) {
+    private static void viewTranscript(Scanner scanner, UniversityDatabase database, ReportPrinter reportPrinter) {
         System.out.print("Enter Student ID: ");
         String studentId = scanner.nextLine();
-        printer.printTranscript(system, studentId);
+        reportPrinter.printTranscript(database, studentId);
     }
 
-    private static void viewCourseRoster(Scanner scanner, UniversitySystem system, LegacyReportPrinter printer) {
+    private static void viewCourseRoster(Scanner scanner, UniversityDatabase database, ReportPrinter reportPrinter) {
         System.out.print("Enter Course Code: ");
         String courseCode = scanner.nextLine();
-        printer.printCourseRoster(system, courseCode);
+        reportPrinter.printCourseRoster(database, courseCode);
     }
 
-    private static void viewDepartmentSummary(Scanner scanner, UniversitySystem system, LegacyReportPrinter printer) {
+    private static void viewDepartmentSummary(Scanner scanner, UniversityDatabase database, ReportPrinter reportPrinter) {
         System.out.print("Enter Department Code (e.g., CS, SE, IT): ");
         String department = scanner.nextLine();
-        printer.printDepartmentSummary(system, department);
+        reportPrinter.printDepartmentSummary(database, department);
     }
 }

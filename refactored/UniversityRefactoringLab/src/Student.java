@@ -1,4 +1,12 @@
 public class Student {
+    public static final String TYPE_LOCAL = "LOCAL";
+    public static final String TYPE_INTERNATIONAL = "INTERNATIONAL";
+    public static final String TYPE_SCHOLARSHIP = "SCHOLARSHIP";
+
+    public static final String STATUS_PROBATION = "PROBATION";
+    public static final String STATUS_GOOD = "GOOD";
+    public static final String STATUS_HONOR = "HONOR";
+
     private String id;
     private String name;
     private String email;

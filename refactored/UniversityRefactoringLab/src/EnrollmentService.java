@@ -1,15 +1,33 @@
 public class EnrollmentService {
 
-    private UniversitySystem system;
+    public static final String SEMESTER_SUMMER = "SUMMER";
+    public static final String GRADE_A = "A";
+    public static final String GRADE_B = "B";
+    public static final String GRADE_C = "C";
+    public static final String GRADE_D = "D";
+    public static final String GRADE_F = "F";
+
+    public static final int PROBATION_COURSE_LIMIT = 2;
+    public static final double MAX_UNPAID_BALANCE = 1000.0;
+    public static final double GPA_PROBATION_THRESHOLD = 2.0;
+    public static final double GPA_HONOR_THRESHOLD = 3.5;
+
+    public static final double POINTS_A = 4.0;
+    public static final double POINTS_B = 3.0;
+    public static final double POINTS_C = 2.0;
+    public static final double POINTS_D = 1.0;
+    public static final double POINTS_F = 0.0;
+
+    private UniversityDatabase database;
     private NotificationService notificationService;
 
-    public EnrollmentService(UniversitySystem system, NotificationService notificationService) {
-        this.system = system;
+    public EnrollmentService(UniversityDatabase database, NotificationService notificationService) {
+        this.database = database;
         this.notificationService = notificationService;
     }
 
     private boolean hasScheduleConflict(String studentId, Course course, String semester) {
-        for (Enrollment currentEnrollment : system.getEnrollments()) {
+        for (Enrollment currentEnrollment : database.getEnrollments()) {
             if (currentEnrollment.getStudentId().equals(studentId) && currentEnrollment.getSemester().equals(semester)) {
                 if (currentEnrollment.getDay().equals(course.getDay()) && currentEnrollment.getTimeSlot().equals(course.getTimeSlot())) {
                     return true;
@@ -20,15 +38,12 @@ public class EnrollmentService {
     }
 
     private boolean hasPassedPrerequisite(String studentId, String prerequisite) {
-        if (prerequisite == null || prerequisite.isEmpty()) {
-            return true;
-        }
-        for (Enrollment currentEnrollment : system.getEnrollments()) {
+        if (prerequisite == null || prerequisite.isEmpty()) return true;
+
+        for (Enrollment currentEnrollment : database.getEnrollments()) {
             if (currentEnrollment.getStudentId().equals(studentId) && currentEnrollment.getCourseCode().equals(prerequisite)) {
                 String g = currentEnrollment.getGrade();
-                if (g != null && (g.equals(UniversitySystem.GRADE_A) || g.equals(UniversitySystem.GRADE_B) || g.equals(UniversitySystem.GRADE_C))) {
-                    return true;
-                }
+                if (g != null && (g.equals(GRADE_A) || g.equals(GRADE_B) || g.equals(GRADE_C))) return true;
             }
         }
         return false;
@@ -36,28 +51,28 @@ public class EnrollmentService {
 
     private double calculateEnrollmentFee(Student student, Course course, String paymentType, String semester) {
         double fee = 0;
-        if (student.getType().equals(UniversitySystem.TYPE_LOCAL)) fee = course.getCreditHours() * UniversitySystem.RATE_LOCAL;
-        else if (student.getType().equals(UniversitySystem.TYPE_INTERNATIONAL)) fee = course.getCreditHours() * UniversitySystem.RATE_INTERNATIONAL;
-        else if (student.getType().equals(UniversitySystem.TYPE_SCHOLARSHIP)) fee = course.getCreditHours() * UniversitySystem.RATE_SCHOLARSHIP;
-        else fee = course.getCreditHours() * UniversitySystem.RATE_LOCAL;
+        if (student.getType().equals(Student.TYPE_LOCAL)) fee = course.getCreditHours() * PaymentService.RATE_LOCAL;
+        else if (student.getType().equals(Student.TYPE_INTERNATIONAL)) fee = course.getCreditHours() * PaymentService.RATE_INTERNATIONAL;
+        else if (student.getType().equals(Student.TYPE_SCHOLARSHIP)) fee = course.getCreditHours() * PaymentService.RATE_SCHOLARSHIP;
+        else fee = course.getCreditHours() * PaymentService.RATE_LOCAL;
 
-        if (paymentType.equals(UniversitySystem.PAYMENT_INSTALLMENT)) fee += UniversitySystem.FEE_INSTALLMENT;
-        else if (paymentType.equals(UniversitySystem.PAYMENT_CARD)) fee += UniversitySystem.FEE_CARD;
-        else if (paymentType.equals(UniversitySystem.PAYMENT_CASH)) fee += UniversitySystem.FEE_CASH;
-        else fee += UniversitySystem.FEE_DEFAULT;
+        if (paymentType.equals(PaymentService.PAYMENT_INSTALLMENT)) fee += PaymentService.FEE_INSTALLMENT;
+        else if (paymentType.equals(PaymentService.PAYMENT_CARD)) fee += PaymentService.FEE_CARD;
+        else if (paymentType.equals(PaymentService.PAYMENT_CASH)) fee += PaymentService.FEE_CASH;
+        else fee += PaymentService.FEE_DEFAULT;
 
-        if (semester.equals(UniversitySystem.SEMESTER_SUMMER)) fee += UniversitySystem.FEE_SUMMER;
-        if (course.getCode().startsWith("SE")) fee += UniversitySystem.FEE_SE_COURSE;
+        if (semester.equals(SEMESTER_SUMMER)) fee += PaymentService.FEE_SUMMER;
+        if (course.getCode().startsWith("SE")) fee += PaymentService.FEE_SE_COURSE;
 
         return fee;
     }
 
     private double getGradePoints(String grade) {
-        if (grade.equals(UniversitySystem.GRADE_A)) return UniversitySystem.POINTS_A;
-        if (grade.equals(UniversitySystem.GRADE_B)) return UniversitySystem.POINTS_B;
-        if (grade.equals(UniversitySystem.GRADE_C)) return UniversitySystem.POINTS_C;
-        if (grade.equals(UniversitySystem.GRADE_D)) return UniversitySystem.POINTS_D;
-        return UniversitySystem.POINTS_F;
+        if (grade.equals(GRADE_A)) return POINTS_A;
+        if (grade.equals(GRADE_B)) return POINTS_B;
+        if (grade.equals(GRADE_C)) return POINTS_C;
+        if (grade.equals(GRADE_D)) return POINTS_D;
+        return POINTS_F;
     }
 
     private void updateStudentAcademicStatus(Student student) {
@@ -65,64 +80,62 @@ public class EnrollmentService {
             student.setGpa(student.getTotalGradePoints() / student.getTotalCompletedCredits());
         }
 
-        if (student.getGpa() < UniversitySystem.GPA_PROBATION_THRESHOLD) {
-            student.setStatus(UniversitySystem.STATUS_PROBATION);
-        } else if (student.getGpa() >= UniversitySystem.GPA_PROBATION_THRESHOLD && student.getGpa() < UniversitySystem.GPA_HONOR_THRESHOLD) {
-            student.setStatus(UniversitySystem.STATUS_GOOD);
+        if (student.getGpa() < GPA_PROBATION_THRESHOLD) {
+            student.setStatus(Student.STATUS_PROBATION);
+        } else if (student.getGpa() >= GPA_PROBATION_THRESHOLD && student.getGpa() < GPA_HONOR_THRESHOLD) {
+            student.setStatus(Student.STATUS_GOOD);
         } else {
-            student.setStatus(UniversitySystem.STATUS_HONOR);
+            student.setStatus(Student.STATUS_HONOR);
         }
     }
 
     public String enrollStudent(String studentId, String courseCode, String semester, String paymentType) {
-        Student student = system.findStudent(studentId);
-        Course course = system.findCourse(courseCode);
+        Student student = database.findStudent(studentId);
+        Course course = database.findCourse(courseCode);
 
         if (student == null) {
-            system.getLogs().add("Student not found: " + studentId);
+            database.getLogs().add("Student not found: " + studentId);
             return "Error: Student not found.";
         }
-
         if (course == null) {
-            system.getLogs().add("Course not found: " + courseCode);
+            database.getLogs().add("Course not found: " + courseCode);
             return "Error: Course not found.";
         }
-
         if (student.isBlocked()) {
-            system.getLogs().add("Blocked student tried enrollment");
+            database.getLogs().add("Blocked student tried enrollment");
             return "Error: Student is blocked.";
         }
 
-        if (student.getStatus().equals(UniversitySystem.STATUS_PROBATION)) {
+        if (student.getStatus().equals(Student.STATUS_PROBATION)) {
             int count = 0;
-            for (Enrollment currentEnrollment : system.getEnrollments()) {
+            for (Enrollment currentEnrollment : database.getEnrollments()) {
                 if (currentEnrollment.getStudentId().equals(studentId) && currentEnrollment.getSemester().equals(semester)) {
                     count++;
                 }
             }
-            if (count >= UniversitySystem.PROBATION_COURSE_LIMIT) {
-                system.getLogs().add("Probation limit reached");
-                return "Error: Probation student cannot register for more than " + UniversitySystem.PROBATION_COURSE_LIMIT + " courses.";
+            if (count >= PROBATION_COURSE_LIMIT) {
+                database.getLogs().add("Probation limit reached");
+                return "Error: Probation student cannot register for more than " + PROBATION_COURSE_LIMIT + " courses.";
             }
         }
 
         if (course.getEnrolled() >= course.getCapacity()) {
-            system.getLogs().add("Course full: " + courseCode);
+            database.getLogs().add("Course full: " + courseCode);
             return "Error: Course is full.";
         }
 
-        if (student.getOutstandingBalance() > UniversitySystem.MAX_UNPAID_BALANCE) {
-            system.getLogs().add("Balance issue for " + student.getId());
+        if (student.getOutstandingBalance() > MAX_UNPAID_BALANCE) {
+            database.getLogs().add("Balance issue for " + student.getId());
             return "Error: Student has unpaid balance.";
         }
 
         if (hasScheduleConflict(studentId, course, semester)) {
-            system.getLogs().add("Conflict for " + studentId);
+            database.getLogs().add("Conflict for " + studentId);
             return "Error: Schedule conflict detected.";
         }
 
         if (!hasPassedPrerequisite(studentId, course.getPrerequisite())) {
-            system.getLogs().add("Missing prerequisite for " + studentId);
+            database.getLogs().add("Missing prerequisite for " + studentId);
             return "Error: Missing prerequisite for the course.";
         }
 
@@ -130,7 +143,7 @@ public class EnrollmentService {
 
         student.setOutstandingBalance(student.getOutstandingBalance() + fee);
         Enrollment newEnrollment = new Enrollment(studentId, courseCode, semester, course.getDay(), course.getTimeSlot());
-        system.getEnrollments().add(newEnrollment);
+        database.getEnrollments().add(newEnrollment);
         course.incrementEnrollment();
 
         StringBuilder response = new StringBuilder();
@@ -139,27 +152,27 @@ public class EnrollmentService {
         response.append("Course: ").append(course.getTitle()).append("\n");
         response.append("Semester: ").append(semester).append("\n");
         response.append("Fee charged: $").append(fee);
-        system.getLogs().add("Enrolled " + studentId + " into " + courseCode);
+        database.getLogs().add("Enrolled " + studentId + " into " + courseCode);
 
         if (notificationService.isValidEmail(student.getEmail())) {
             response.append("\nEmail sent to ").append(student.getEmail()).append(": enrolled in ").append(course.getTitle());
-            system.getLogs().add("Enrollment email sent");
+            database.getLogs().add("Enrollment email sent");
         } else {
             response.append("\nInvalid email. Could not send notification.");
-            system.getLogs().add("Invalid email for " + student.getId());
+            database.getLogs().add("Invalid email for " + student.getId());
         }
 
         return response.toString();
     }
 
     public String assignGrade(String studentId, String courseCode, String semester, String grade) {
-        for (Enrollment currentEnrollment : system.getEnrollments()) {
+        for (Enrollment currentEnrollment : database.getEnrollments()) {
             if (currentEnrollment.getStudentId().equals(studentId) && currentEnrollment.getCourseCode().equals(courseCode) && currentEnrollment.getSemester().equals(semester)) {
                 currentEnrollment.setGrade(grade);
 
                 double points = getGradePoints(grade);
-                Student student = system.findStudent(studentId);
-                Course course = system.findCourse(courseCode);
+                Student student = database.findStudent(studentId);
+                Course course = database.findCourse(courseCode);
 
                 if (student != null && course != null) {
                     student.setTotalCompletedCredits(student.getTotalCompletedCredits() + course.getCreditHours());

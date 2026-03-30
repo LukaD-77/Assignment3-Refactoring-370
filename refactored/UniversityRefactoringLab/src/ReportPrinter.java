@@ -1,6 +1,6 @@
 import java.util.List;
 
-public class LegacyReportPrinter {
+public class ReportPrinter {
 
     public void printStudents(List<Student> students) {
         System.out.println("---- STUDENTS ----");
@@ -23,26 +23,26 @@ public class LegacyReportPrinter {
         }
     }
 
-    public void printTranscript(UniversitySystem system, String studentId) {
-        Student student = system.findStudent(studentId);
+    public void printTranscript(UniversityDatabase database, String studentId) {
+        Student student = database.findStudent(studentId);
         if (student == null) {
             System.out.println("Error: Student not found.");
             return;
         }
 
         System.out.println("----- TRANSCRIPT -----");
-        System.out.println("University: " + system.universityName);
+        System.out.println("University: " + database.universityName);
         System.out.println("Name: " + student.getName());
         System.out.println("ID: " + student.getId());
         System.out.println("Department: " + student.getDepartment());
         System.out.println("Status: " + student.getStatus());
         System.out.println("GPA: " + student.getGpa());
 
-        for (Enrollment currentEnrollment : system.getEnrollments()) {
+        for (Enrollment currentEnrollment : database.getEnrollments()) {
             if (currentEnrollment.getStudentId().equals(studentId)) {
                 String title = "";
                 int credits = 0;
-                Course course = system.findCourse(currentEnrollment.getCourseCode());
+                Course course = database.findCourse(currentEnrollment.getCourseCode());
                 if (course != null) {
                     title = course.getTitle();
                     credits = course.getCreditHours();
@@ -57,9 +57,9 @@ public class LegacyReportPrinter {
         }
     }
 
-    public void printCourseRoster(UniversitySystem system, String courseCode) {
+    public void printCourseRoster(UniversityDatabase database, String courseCode) {
         System.out.println("----- COURSE ROSTER -----");
-        Course currentCourse = system.findCourse(courseCode);
+        Course currentCourse = database.findCourse(courseCode);
 
         if (currentCourse != null) {
             System.out.println("Course: " + currentCourse.getTitle());
@@ -72,9 +72,9 @@ public class LegacyReportPrinter {
         }
 
         System.out.println("-- Students --");
-        for (Enrollment currentEnrollment : system.getEnrollments()) {
+        for (Enrollment currentEnrollment : database.getEnrollments()) {
             if (currentEnrollment.getCourseCode().equals(courseCode)) {
-                Student student = system.findStudent(currentEnrollment.getStudentId());
+                Student student = database.findStudent(currentEnrollment.getStudentId());
                 if (student != null) {
                     System.out.println(student.getId() + " - " + student.getName() + " - " + student.getStatus());
                 }
@@ -82,7 +82,7 @@ public class LegacyReportPrinter {
         }
     }
 
-    public void printDepartmentSummary(UniversitySystem system, String department) {
+    public void printDepartmentSummary(UniversityDatabase database, String department) {
         System.out.println("----- DEPARTMENT SUMMARY -----");
         System.out.println("Department: " + department);
 
@@ -92,7 +92,7 @@ public class LegacyReportPrinter {
         double avgGpa = 0;
         int gpaCount = 0;
 
-        for (Student currentStudent : system.getStudents()) {
+        for (Student currentStudent : database.getStudents()) {
             if (currentStudent.getDepartment().equals(department)) {
                 studentCount++;
                 avgGpa += currentStudent.getGpa();
@@ -100,13 +100,13 @@ public class LegacyReportPrinter {
             }
         }
 
-        for (Instructor currentInstructor : system.getInstructors()) {
+        for (Instructor currentInstructor : database.getInstructors()) {
             if (currentInstructor.getDepartment().equals(department)) {
                 instructorCount++;
             }
         }
 
-        for (Course currentCourse : system.getCourses()) {
+        for (Course currentCourse : database.getCourses()) {
             if (currentCourse.getCode().startsWith(department)) {
                 courseCount++;
             }
