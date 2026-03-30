@@ -49,7 +49,7 @@ public class Main {
                 System.out.print("Enter Type (LOCAL/INTERNATIONAL/SCHOLARSHIP): ");
                 String type = scanner.nextLine();
 
-                system.students.add(new Student(id, name, email, department, type));
+                system.addStudent(new Student(id, name, email, department, type));
                 System.out.println("Student added.");
 
             } else if (choice == 2) {
@@ -77,7 +77,7 @@ public class Main {
                 System.out.print("Enter Time Slot: ");
                 String time = scanner.nextLine();
 
-                system.courses.add(new Course(code, title, instructor, credits, capacity, pre, day, time));
+                system.addCourse(new Course(code, title, instructor, credits, capacity, pre, day, time));
                 System.out.println("Course added.");
 
             } else if (choice == 3) {
@@ -93,7 +93,7 @@ public class Main {
                 System.out.print("Enter Maximum Teaching Load: ");
                 int maxLoad = Integer.parseInt(scanner.nextLine());
 
-                system.instructors.add(new Instructor(id, name, department, maxLoad));
+                system.addInstructor(new Instructor(id, name, department, maxLoad));
                 System.out.println("Instructor added.");
 
             } else if (choice == 4) {
@@ -157,13 +157,13 @@ public class Main {
                 system.sendWarningLetters();
 
             } else if (choice == 11) {
-                printer.printStudents(system.students);
+                printer.printStudents(system.getStudents());
 
             } else if (choice == 12) {
-                printer.printCourses(system.courses);
+                printer.printCourses(system.getCourses());
 
             } else if (choice == 13) {
-                printer.printPayments(system.payments);
+                printer.printPayments(system.getPayments());
 
             } else if (choice == 14) {
                 System.out.println("Exiting system...");
