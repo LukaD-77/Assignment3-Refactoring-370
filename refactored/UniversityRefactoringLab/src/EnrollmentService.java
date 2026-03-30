@@ -1,3 +1,5 @@
+import java.util.Optional;
+
 public class EnrollmentService {
 
     public static final String SEMESTER_SUMMER = "SUMMER";
@@ -26,73 +28,46 @@ public class EnrollmentService {
         this.notificationService = notificationService;
     }
 
-    private boolean hasScheduleConflict(String studentId, Course course, String semester) {
-        for (Enrollment currentEnrollment : database.getEnrollments()) {
-            if (currentEnrollment.getStudentId().equals(studentId) && currentEnrollment.getSemester().equals(semester)) {
-                if (currentEnrollment.getDay().equals(course.getDay()) && currentEnrollment.getTimeSlot().equals(course.getTimeSlot())) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    private boolean hasPassedPrerequisite(String studentId, String prerequisite) {
-        if (prerequisite == null || prerequisite.isEmpty()) return true;
-
-        for (Enrollment currentEnrollment : database.getEnrollments()) {
-            if (currentEnrollment.getStudentId().equals(studentId) && currentEnrollment.getCourseCode().equals(prerequisite)) {
-                String g = currentEnrollment.getGrade();
-                if (g != null && (g.equals(GRADE_A) || g.equals(GRADE_B) || g.equals(GRADE_C))) return true;
-            }
-        }
-        return false;
-    }
-
-    private double calculateEnrollmentFee(Student student, Course course, String paymentType, String semester) {
-        double fee = 0;
-        if (student.getType().equals(Student.TYPE_LOCAL)) fee = course.getCreditHours() * PaymentService.RATE_LOCAL;
-        else if (student.getType().equals(Student.TYPE_INTERNATIONAL)) fee = course.getCreditHours() * PaymentService.RATE_INTERNATIONAL;
-        else if (student.getType().equals(Student.TYPE_SCHOLARSHIP)) fee = course.getCreditHours() * PaymentService.RATE_SCHOLARSHIP;
-        else fee = course.getCreditHours() * PaymentService.RATE_LOCAL;
-
-        if (paymentType.equals(PaymentService.PAYMENT_INSTALLMENT)) fee += PaymentService.FEE_INSTALLMENT;
-        else if (paymentType.equals(PaymentService.PAYMENT_CARD)) fee += PaymentService.FEE_CARD;
-        else if (paymentType.equals(PaymentService.PAYMENT_CASH)) fee += PaymentService.FEE_CASH;
-        else fee += PaymentService.FEE_DEFAULT;
-
-        if (semester.equals(SEMESTER_SUMMER)) fee += PaymentService.FEE_SUMMER;
-        if (course.getCode().startsWith("SE")) fee += PaymentService.FEE_SE_COURSE;
-
-        return fee;
-    }
-
-    private double getGradePoints(String grade) {
-        if (grade.equals(GRADE_A)) return POINTS_A;
-        if (grade.equals(GRADE_B)) return POINTS_B;
-        if (grade.equals(GRADE_C)) return POINTS_C;
-        if (grade.equals(GRADE_D)) return POINTS_D;
-        return POINTS_F;
-    }
-
-    private void updateStudentAcademicStatus(Student student) {
-        if (student.getTotalCompletedCredits() > 0) {
-            student.setGpa(student.getTotalGradePoints() / student.getTotalCompletedCredits());
-        }
-
-        if (student.getGpa() < GPA_PROBATION_THRESHOLD) {
-            student.setStatus(Student.STATUS_PROBATION);
-        } else if (student.getGpa() >= GPA_PROBATION_THRESHOLD && student.getGpa() < GPA_HONOR_THRESHOLD) {
-            student.setStatus(Student.STATUS_GOOD);
-        } else {
-            student.setStatus(Student.STATUS_HONOR);
-        }
-    }
+    // -------------------------------------------------------------------------
+    // Public Methods (The Orchestrators)
+    // -------------------------------------------------------------------------
 
     public String enrollStudent(String studentId, String courseCode, String semester, String paymentType) {
         Student student = database.findStudent(studentId);
         Course course = database.findCourse(courseCode);
 
+        String lookupError = validateLookup(student, course, studentId, courseCode);
+        if (lookupError != null) return lookupError;
+
+        String eligibilityError = validateEligibility(student, course, studentId, semester);
+        if (eligibilityError != null) return eligibilityError;
+
+        double fee = calculateEnrollmentFee(student, course, paymentType, semester);
+        commitEnrollment(student, course, semester, fee);
+
+        return buildEnrollmentResponse(student, course, semester, fee);
+    }
+
+    public String assignGrade(String studentId, String courseCode, String semester, String grade) {
+        Enrollment enrollment = findEnrollment(studentId, courseCode, semester);
+        if (enrollment == null) return "Error: Enrollment record not found.";
+
+        Student student = database.findStudent(studentId);
+        Course course = database.findCourse(courseCode);
+        if (student == null || course == null) return "Error: System data missing.";
+
+        enrollment.setGrade(grade);
+        applyGradeToStudent(student, course, grade);
+        updateStudentAcademicStatus(student);
+
+        return buildGradeResponse(student);
+    }
+
+    // -------------------------------------------------------------------------
+    // Validation Helpers
+    // -------------------------------------------------------------------------
+
+    private String validateLookup(Student student, Course course, String studentId, String courseCode) {
         if (student == null) {
             database.getLogs().add("Student not found: " + studentId);
             return "Error: Student not found.";
@@ -101,99 +76,186 @@ public class EnrollmentService {
             database.getLogs().add("Course not found: " + courseCode);
             return "Error: Course not found.";
         }
+        return null;
+    }
+
+    private String validateEligibility(Student student, Course course, String studentId, String semester) {
         if (student.isBlocked()) {
             database.getLogs().add("Blocked student tried enrollment");
             return "Error: Student is blocked.";
         }
-
-        if (student.getStatus().equals(Student.STATUS_PROBATION)) {
-            int count = 0;
-            for (Enrollment currentEnrollment : database.getEnrollments()) {
-                if (currentEnrollment.getStudentId().equals(studentId) && currentEnrollment.getSemester().equals(semester)) {
-                    count++;
-                }
-            }
-            if (count >= PROBATION_COURSE_LIMIT) {
-                database.getLogs().add("Probation limit reached");
-                return "Error: Probation student cannot register for more than " + PROBATION_COURSE_LIMIT + " courses.";
-            }
+        if (isProbationLimitReached(student, studentId, semester)) {
+            database.getLogs().add("Probation limit reached");
+            return "Error: Probation student cannot register for more than " + PROBATION_COURSE_LIMIT + " courses.";
         }
-
         if (course.getEnrolled() >= course.getCapacity()) {
-            database.getLogs().add("Course full: " + courseCode);
+            database.getLogs().add("Course full: " + course.getCode());
             return "Error: Course is full.";
         }
-
         if (student.getOutstandingBalance() > MAX_UNPAID_BALANCE) {
             database.getLogs().add("Balance issue for " + student.getId());
             return "Error: Student has unpaid balance.";
         }
-
         if (hasScheduleConflict(studentId, course, semester)) {
             database.getLogs().add("Conflict for " + studentId);
             return "Error: Schedule conflict detected.";
         }
-
         if (!hasPassedPrerequisite(studentId, course.getPrerequisite())) {
             database.getLogs().add("Missing prerequisite for " + studentId);
             return "Error: Missing prerequisite for the course.";
         }
+        return null;
+    }
 
-        double fee = calculateEnrollmentFee(student, course, paymentType, semester);
+    private boolean isProbationLimitReached(Student student, String studentId, String semester) {
+        if (!student.getStatus().equals(Student.STATUS_PROBATION)) return false;
 
+        long semesterEnrollmentCount = database.getEnrollments().stream()
+                .filter(e -> e.getStudentId().equals(studentId) && e.getSemester().equals(semester))
+                .count();
+
+        return semesterEnrollmentCount >= PROBATION_COURSE_LIMIT;
+    }
+
+    private boolean hasScheduleConflict(String studentId, Course course, String semester) {
+        return database.getEnrollments().stream()
+                .filter(e -> e.getStudentId().equals(studentId) && e.getSemester().equals(semester))
+                .anyMatch(e -> e.getDay().equals(course.getDay()) && e.getTimeSlot().equals(course.getTimeSlot()));
+    }
+
+    private boolean hasPassedPrerequisite(String studentId, String prerequisite) {
+        if (prerequisite == null || prerequisite.isEmpty()) return true;
+
+        return database.getEnrollments().stream()
+                .filter(e -> e.getStudentId().equals(studentId) && e.getCourseCode().equals(prerequisite))
+                .anyMatch(e -> isPassingGrade(e.getGrade()));
+    }
+
+    private boolean isPassingGrade(String grade) {
+        return grade != null && (grade.equals(GRADE_A) || grade.equals(GRADE_B) || grade.equals(GRADE_C));
+    }
+
+    // -------------------------------------------------------------------------
+    // Fee Calculation Helpers
+    // -------------------------------------------------------------------------
+
+    private double calculateEnrollmentFee(Student student, Course course, String paymentType, String semester) {
+        double fee = getBaseRate(student.getType()) * course.getCreditHours();
+        fee += getPaymentTypeFee(paymentType);
+
+        if (semester.equals(SEMESTER_SUMMER)) fee += PaymentService.FEE_SUMMER;
+        if (course.getCode().startsWith("SE")) fee += PaymentService.FEE_SE_COURSE;
+
+        return fee;
+    }
+
+    private double getBaseRate(String studentType) {
+        switch (studentType) {
+            case Student.TYPE_INTERNATIONAL: return PaymentService.RATE_INTERNATIONAL;
+            case Student.TYPE_SCHOLARSHIP:  return PaymentService.RATE_SCHOLARSHIP;
+            case Student.TYPE_LOCAL:
+            default:                        return PaymentService.RATE_LOCAL;
+        }
+    }
+
+    private double getPaymentTypeFee(String paymentType) {
+        switch (paymentType) {
+            case PaymentService.PAYMENT_INSTALLMENT: return PaymentService.FEE_INSTALLMENT;
+            case PaymentService.PAYMENT_CARD:        return PaymentService.FEE_CARD;
+            case PaymentService.PAYMENT_CASH:        return PaymentService.FEE_CASH;
+            default:                                 return PaymentService.FEE_DEFAULT;
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Enrollment Commit & Response Helpers
+    // -------------------------------------------------------------------------
+
+    private void commitEnrollment(Student student, Course course, String semester, double fee) {
         student.setOutstandingBalance(student.getOutstandingBalance() + fee);
-        Enrollment newEnrollment = new Enrollment(studentId, courseCode, semester, course.getDay(), course.getTimeSlot());
-        database.getEnrollments().add(newEnrollment);
+        database.getEnrollments().add(new Enrollment(student.getId(), course.getCode(), semester, course.getDay(), course.getTimeSlot()));
         course.incrementEnrollment();
+        database.getLogs().add("Enrolled " + student.getId() + " into " + course.getCode());
+    }
 
+    private String buildEnrollmentResponse(Student student, Course course, String semester, double fee) {
         StringBuilder response = new StringBuilder();
         response.append("Enrollment completed.\n");
         response.append("Student: ").append(student.getName()).append("\n");
         response.append("Course: ").append(course.getTitle()).append("\n");
         response.append("Semester: ").append(semester).append("\n");
         response.append("Fee charged: $").append(fee);
-        database.getLogs().add("Enrolled " + studentId + " into " + courseCode);
 
-        if (notificationService.isValidEmail(student.getEmail())) {
-            response.append("\nEmail sent to ").append(student.getEmail()).append(": enrolled in ").append(course.getTitle());
-            database.getLogs().add("Enrollment email sent");
-        } else {
-            response.append("\nInvalid email. Could not send notification.");
-            database.getLogs().add("Invalid email for " + student.getId());
-        }
+        appendEmailNotification(response, student, "enrolled in " + course.getTitle(), "Enrollment email sent");
 
         return response.toString();
     }
 
-    public String assignGrade(String studentId, String courseCode, String semester, String grade) {
-        for (Enrollment currentEnrollment : database.getEnrollments()) {
-            if (currentEnrollment.getStudentId().equals(studentId) && currentEnrollment.getCourseCode().equals(courseCode) && currentEnrollment.getSemester().equals(semester)) {
-                currentEnrollment.setGrade(grade);
-
-                double points = getGradePoints(grade);
-                Student student = database.findStudent(studentId);
-                Course course = database.findCourse(courseCode);
-
-                if (student != null && course != null) {
-                    student.setTotalCompletedCredits(student.getTotalCompletedCredits() + course.getCreditHours());
-                    student.setTotalGradePoints(student.getTotalGradePoints() + (points * course.getCreditHours()));
-
-                    updateStudentAcademicStatus(student);
-
-                    StringBuilder response = new StringBuilder();
-                    response.append("Grade assigned successfully.\n");
-                    response.append("Updated GPA: ").append(student.getGpa()).append("\n");
-                    response.append("Updated Status: ").append(student.getStatus());
-
-                    if (notificationService.isValidEmail(student.getEmail())) {
-                        response.append("\nEmail sent to ").append(student.getEmail()).append(": grade posted");
-                    } else {
-                        response.append("\nCould not send grade email.");
-                    }
-                    return response.toString();
-                }
-            }
+    private void appendEmailNotification(StringBuilder response, Student student, String message, String successLog) {
+        if (notificationService.isValidEmail(student.getEmail())) {
+            response.append("\nEmail sent to ").append(student.getEmail()).append(": ").append(message);
+            database.getLogs().add(successLog);
+        } else {
+            response.append("\nInvalid email. Could not send notification.");
+            database.getLogs().add("Invalid email for " + student.getId());
         }
-        return "Error: Enrollment record not found.";
+    }
+
+    // -------------------------------------------------------------------------
+    // Grade Assignment Helpers
+    // -------------------------------------------------------------------------
+
+    private Enrollment findEnrollment(String studentId, String courseCode, String semester) {
+        return database.getEnrollments().stream()
+                .filter(e -> e.getStudentId().equals(studentId)
+                        && e.getCourseCode().equals(courseCode)
+                        && e.getSemester().equals(semester))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private void applyGradeToStudent(Student student, Course course, String grade) {
+        double points = getGradePoints(grade);
+        student.setTotalCompletedCredits(student.getTotalCompletedCredits() + course.getCreditHours());
+        student.setTotalGradePoints(student.getTotalGradePoints() + (points * course.getCreditHours()));
+    }
+
+    private double getGradePoints(String grade) {
+        switch (grade) {
+            case GRADE_A: return POINTS_A;
+            case GRADE_B: return POINTS_B;
+            case GRADE_C: return POINTS_C;
+            case GRADE_D: return POINTS_D;
+            default:      return POINTS_F;
+        }
+    }
+
+    private String buildGradeResponse(Student student) {
+        StringBuilder response = new StringBuilder();
+        response.append("Grade assigned successfully.\n");
+        response.append("Updated GPA: ").append(student.getGpa()).append("\n");
+        response.append("Updated Status: ").append(student.getStatus());
+
+        appendEmailNotification(response, student, "grade posted", "Grade email sent");
+
+        return response.toString();
+    }
+
+    // -------------------------------------------------------------------------
+    // Academic Status Helper
+    // -------------------------------------------------------------------------
+
+    private void updateStudentAcademicStatus(Student student) {
+        if (student.getTotalCompletedCredits() > 0) {
+            student.setGpa(student.getTotalGradePoints() / student.getTotalCompletedCredits());
+        }
+
+        if (student.getGpa() < GPA_PROBATION_THRESHOLD) {
+            student.setStatus(Student.STATUS_PROBATION);
+        } else if (student.getGpa() < GPA_HONOR_THRESHOLD) {
+            student.setStatus(Student.STATUS_GOOD);
+        } else {
+            student.setStatus(Student.STATUS_HONOR);
+        }
     }
 }
