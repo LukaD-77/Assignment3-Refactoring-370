@@ -11,9 +11,58 @@ public class UniversitySystem {
     public List<String> logs = new ArrayList<>();
 
     public String universityName = "Metro University";
-    public double localRate = 300;
-    public double internationalRate = 550;
-    public double scholarshipRate = 100;
+
+    // Categorical String Constants
+    public static final String TYPE_LOCAL = "LOCAL";
+    public static final String TYPE_INTERNATIONAL = "INTERNATIONAL";
+    public static final String TYPE_SCHOLARSHIP = "SCHOLARSHIP";
+
+    public static final String STATUS_PROBATION = "PROBATION";
+    public static final String STATUS_GOOD = "GOOD";
+    public static final String STATUS_HONOR = "HONOR";
+
+    public static final String PAYMENT_INSTALLMENT = "INSTALLMENT";
+    public static final String PAYMENT_CARD = "CARD";
+    public static final String PAYMENT_CASH = "CASH";
+    public static final String PAYMENT_BANK = "BANK";
+
+    public static final String SEMESTER_SUMMER = "SUMMER";
+
+    public static final String GRADE_A = "A";
+    public static final String GRADE_B = "B";
+    public static final String GRADE_C = "C";
+    public static final String GRADE_D = "D";
+    public static final String GRADE_F = "F";
+
+    // Financial Constants
+    public static final double RATE_LOCAL = 300.0;
+    public static final double RATE_INTERNATIONAL = 550.0;
+    public static final double RATE_SCHOLARSHIP = 100.0;
+
+    public static final double FEE_INSTALLMENT = 50.0;
+    public static final double FEE_CARD = 10.0;
+    public static final double FEE_CASH = 0.0;
+    public static final double FEE_DEFAULT = 100.0;
+    public static final double FEE_SUMMER = 200.0;
+    public static final double FEE_SE_COURSE = 75.0;
+
+    public static final double DISCOUNT_CARD = 5.0;
+    public static final double DISCOUNT_BANK = 2.0;
+    public static final double DISCOUNT_DEFAULT = 10.0;
+
+    // Academic & Threshold Constants
+    public static final int PROBATION_COURSE_LIMIT = 2;
+    public static final double MAX_UNPAID_BALANCE = 1000.0;
+    public static final double WARNING_BALANCE_THRESHOLD = 500.0;
+
+    public static final double GPA_PROBATION_THRESHOLD = 2.0;
+    public static final double GPA_HONOR_THRESHOLD = 3.5;
+
+    public static final double POINTS_A = 4.0;
+    public static final double POINTS_B = 3.0;
+    public static final double POINTS_C = 2.0;
+    public static final double POINTS_D = 1.0;
+    public static final double POINTS_F = 0.0;
 
     public void enrollStudent(String studentId, String courseCode, String semester, String paymentType) {
         Student student = null;
@@ -49,15 +98,15 @@ public class UniversitySystem {
             return;
         }
 
-        if (student.status.equals("PROBATION")) {
+        if (student.status.equals(STATUS_PROBATION)) {
             int count = 0;
             for (Enrollment currentEnrollment : enrollments) {
                 if (currentEnrollment.studentId.equals(studentId) && currentEnrollment.semester.equals(semester)) {
                     count++;
                 }
             }
-            if (count >= 2) {
-                System.out.println("Probation student cannot register more than 2 courses");
+            if (count >= PROBATION_COURSE_LIMIT) {
+                System.out.println("Probation student cannot register more than " + PROBATION_COURSE_LIMIT + " courses");
                 logs.add("Probation limit reached");
                 return;
             }
@@ -69,7 +118,7 @@ public class UniversitySystem {
             return;
         }
 
-        if (student.outstandingBalance > 1000) {
+        if (student.outstandingBalance > MAX_UNPAID_BALANCE) {
             System.out.println("Student has unpaid balance");
             logs.add("Balance issue for " + student.id);
             return;
@@ -89,7 +138,7 @@ public class UniversitySystem {
             boolean passed = false;
             for (Enrollment currentEnrollment : enrollments) {
                 if (currentEnrollment.studentId.equals(studentId) && currentEnrollment.courseCode.equals(course.prerequisite)) {
-                    if (currentEnrollment.grade != null && (currentEnrollment.grade.equals("A") || currentEnrollment.grade.equals("B") || currentEnrollment.grade.equals("C"))) {
+                    if (currentEnrollment.grade != null && (currentEnrollment.grade.equals(GRADE_A) || currentEnrollment.grade.equals(GRADE_B) || currentEnrollment.grade.equals(GRADE_C))) {
                         passed = true;
                     }
                 }
@@ -102,32 +151,32 @@ public class UniversitySystem {
         }
 
         double fee = 0;
-        if (student.type.equals("LOCAL")) {
-            fee = course.creditHours * 300;
-        } else if (student.type.equals("INTERNATIONAL")) {
-            fee = course.creditHours * 550;
-        } else if (student.type.equals("SCHOLARSHIP")) {
-            fee = course.creditHours * 100;
+        if (student.type.equals(TYPE_LOCAL)) {
+            fee = course.creditHours * RATE_LOCAL;
+        } else if (student.type.equals(TYPE_INTERNATIONAL)) {
+            fee = course.creditHours * RATE_INTERNATIONAL;
+        } else if (student.type.equals(TYPE_SCHOLARSHIP)) {
+            fee = course.creditHours * RATE_SCHOLARSHIP;
         } else {
-            fee = course.creditHours * 300;
+            fee = course.creditHours * RATE_LOCAL;
         }
 
-        if (paymentType.equals("INSTALLMENT")) {
-            fee = fee + 50;
-        } else if (paymentType.equals("CARD")) {
-            fee = fee + 10;
-        } else if (paymentType.equals("CASH")) {
-            fee = fee + 0;
+        if (paymentType.equals(PAYMENT_INSTALLMENT)) {
+            fee = fee + FEE_INSTALLMENT;
+        } else if (paymentType.equals(PAYMENT_CARD)) {
+            fee = fee + FEE_CARD;
+        } else if (paymentType.equals(PAYMENT_CASH)) {
+            fee = fee + FEE_CASH;
         } else {
-            fee = fee + 100;
+            fee = fee + FEE_DEFAULT;
         }
 
-        if (semester.equals("SUMMER")) {
-            fee = fee + 200;
+        if (semester.equals(SEMESTER_SUMMER)) {
+            fee = fee + FEE_SUMMER;
         }
 
         if (courseCode.startsWith("SE")) {
-            fee = fee + 75;
+            fee = fee + FEE_SE_COURSE;
         }
 
         student.outstandingBalance = student.outstandingBalance + fee;
@@ -158,11 +207,11 @@ public class UniversitySystem {
                 System.out.println("Grade assigned");
 
                 double points = 0;
-                if (grade.equals("A")) points = 4.0;
-                else if (grade.equals("B")) points = 3.0;
-                else if (grade.equals("C")) points = 2.0;
-                else if (grade.equals("D")) points = 1.0;
-                else if (grade.equals("F")) points = 0.0;
+                if (grade.equals(GRADE_A)) points = POINTS_A;
+                else if (grade.equals(GRADE_B)) points = POINTS_B;
+                else if (grade.equals(GRADE_C)) points = POINTS_C;
+                else if (grade.equals(GRADE_D)) points = POINTS_D;
+                else if (grade.equals(GRADE_F)) points = POINTS_F;
 
                 Student student = null;
                 Course course = null;
@@ -178,14 +227,17 @@ public class UniversitySystem {
                 if (student != null && course != null) {
                     student.totalCompletedCredits += course.creditHours;
                     student.totalGradePoints += points * course.creditHours;
-                    student.gpa = student.totalGradePoints / student.totalCompletedCredits;
 
-                    if (student.gpa < 2.0) {
-                        student.status = "PROBATION";
-                    } else if (student.gpa >= 2.0 && student.gpa < 3.5) {
-                        student.status = "GOOD";
+                    if (student.totalCompletedCredits > 0) {
+                        student.gpa = student.totalGradePoints / student.totalCompletedCredits;
+                    }
+
+                    if (student.gpa < GPA_PROBATION_THRESHOLD) {
+                        student.status = STATUS_PROBATION;
+                    } else if (student.gpa >= GPA_PROBATION_THRESHOLD && student.gpa < GPA_HONOR_THRESHOLD) {
+                        student.status = STATUS_GOOD;
                     } else {
-                        student.status = "HONOR";
+                        student.status = STATUS_HONOR;
                     }
 
                     System.out.println("Updated GPA: " + student.gpa);
@@ -219,13 +271,14 @@ public class UniversitySystem {
             return;
         }
 
-        if (method.equals("CARD")) {
-            amount = amount - 5;
-        } else if (method.equals("BANK")) {
-            amount = amount - 2;
-        } else if (method.equals("CASH")) {
+        if (method.equals(PAYMENT_CARD)) {
+            amount = amount - DISCOUNT_CARD;
+        } else if (method.equals(PAYMENT_BANK)) {
+            amount = amount - DISCOUNT_BANK;
+        } else if (method.equals(PAYMENT_CASH)) {
+            amount = amount - FEE_CASH;
         } else {
-            amount = amount - 10;
+            amount = amount - DISCOUNT_DEFAULT;
         }
 
         student.outstandingBalance = student.outstandingBalance - amount;
@@ -350,13 +403,13 @@ public class UniversitySystem {
 
     public void sendWarningLetters() {
         for (Student currentStudent : students) {
-            if (currentStudent.outstandingBalance > 500 || currentStudent.status.equals("PROBATION")) {
+            if (currentStudent.outstandingBalance > WARNING_BALANCE_THRESHOLD || currentStudent.status.equals(STATUS_PROBATION)) {
                 if (currentStudent.email != null && currentStudent.email.contains("@")) {
                     System.out.println("Sending warning email to " + currentStudent.email);
-                    if (currentStudent.outstandingBalance > 500) {
+                    if (currentStudent.outstandingBalance > WARNING_BALANCE_THRESHOLD) {
                         System.out.println("Reason: unpaid balance");
                     }
-                    if (currentStudent.status.equals("PROBATION")) {
+                    if (currentStudent.status.equals(STATUS_PROBATION)) {
                         System.out.println("Reason: academic probation");
                     }
                     logs.add("Warning sent to " + currentStudent.id);
