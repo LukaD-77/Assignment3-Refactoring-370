@@ -64,6 +64,79 @@ public class UniversitySystem {
         return email != null && email.contains("@") && email.contains(".");
     }
 
+    private boolean hasScheduleConflict(String studentId, Course course, String semester) {
+        for (Enrollment currentEnrollment : enrollments) {
+            if (currentEnrollment.getStudentId().equals(studentId) && currentEnrollment.getSemester().equals(semester)) {
+                if (currentEnrollment.getDay().equals(course.getDay()) && currentEnrollment.getTimeSlot().equals(course.getTimeSlot())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean hasPassedPrerequisite(String studentId, String prerequisite) {
+        if (prerequisite == null || prerequisite.isEmpty()) {
+            return true;
+        }
+        for (Enrollment currentEnrollment : enrollments) {
+            if (currentEnrollment.getStudentId().equals(studentId) && currentEnrollment.getCourseCode().equals(prerequisite)) {
+                String g = currentEnrollment.getGrade();
+                if (g != null && (g.equals(GRADE_A) || g.equals(GRADE_B) || g.equals(GRADE_C))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private double calculateEnrollmentFee(Student student, Course course, String paymentType, String semester) {
+        double fee = 0;
+        if (student.getType().equals(TYPE_LOCAL)) fee = course.getCreditHours() * RATE_LOCAL;
+        else if (student.getType().equals(TYPE_INTERNATIONAL)) fee = course.getCreditHours() * RATE_INTERNATIONAL;
+        else if (student.getType().equals(TYPE_SCHOLARSHIP)) fee = course.getCreditHours() * RATE_SCHOLARSHIP;
+        else fee = course.getCreditHours() * RATE_LOCAL;
+
+        if (paymentType.equals(PAYMENT_INSTALLMENT)) fee += FEE_INSTALLMENT;
+        else if (paymentType.equals(PAYMENT_CARD)) fee += FEE_CARD;
+        else if (paymentType.equals(PAYMENT_CASH)) fee += FEE_CASH;
+        else fee += FEE_DEFAULT;
+
+        if (semester.equals(SEMESTER_SUMMER)) fee += FEE_SUMMER;
+        if (course.getCode().startsWith("SE")) fee += FEE_SE_COURSE;
+
+        return fee;
+    }
+
+    private double getGradePoints(String grade) {
+        if (grade.equals(GRADE_A)) return POINTS_A;
+        if (grade.equals(GRADE_B)) return POINTS_B;
+        if (grade.equals(GRADE_C)) return POINTS_C;
+        if (grade.equals(GRADE_D)) return POINTS_D;
+        return POINTS_F;
+    }
+
+    private void updateStudentAcademicStatus(Student student) {
+        if (student.getTotalCompletedCredits() > 0) {
+            student.setGpa(student.getTotalGradePoints() / student.getTotalCompletedCredits());
+        }
+
+        if (student.getGpa() < GPA_PROBATION_THRESHOLD) {
+            student.setStatus(STATUS_PROBATION);
+        } else if (student.getGpa() >= GPA_PROBATION_THRESHOLD && student.getGpa() < GPA_HONOR_THRESHOLD) {
+            student.setStatus(STATUS_GOOD);
+        } else {
+            student.setStatus(STATUS_HONOR);
+        }
+    }
+
+    private double calculateFinalPaymentAmount(double amount, String method) {
+        if (method.equals(PAYMENT_CARD)) return amount - DISCOUNT_CARD;
+        if (method.equals(PAYMENT_BANK)) return amount - DISCOUNT_BANK;
+        if (method.equals(PAYMENT_CASH)) return amount - FEE_CASH;
+        return amount - DISCOUNT_DEFAULT;
+    }
+
     public void enrollStudent(String studentId, String courseCode, String semester, String paymentType) {
         Student student = findStudent(studentId);
         Course course = findCourse(courseCode);
@@ -112,60 +185,19 @@ public class UniversitySystem {
             return;
         }
 
-        for (Enrollment currentEnrollment : enrollments) {
-            if (currentEnrollment.getStudentId().equals(studentId) && currentEnrollment.getSemester().equals(semester)) {
-                if (currentEnrollment.getDay().equals(course.getDay()) && currentEnrollment.getTimeSlot().equals(course.getTimeSlot())) {
-                    System.out.println("Schedule conflict");
-                    logs.add("Conflict for " + studentId);
-                    return;
-                }
-            }
+        if (hasScheduleConflict(studentId, course, semester)) {
+            System.out.println("Schedule conflict");
+            logs.add("Conflict for " + studentId);
+            return;
         }
 
-        if (course.getPrerequisite() != null && !course.getPrerequisite().equals("")) {
-            boolean passed = false;
-            for (Enrollment currentEnrollment : enrollments) {
-                if (currentEnrollment.getStudentId().equals(studentId) && currentEnrollment.getCourseCode().equals(course.getPrerequisite())) {
-                    if (currentEnrollment.getGrade() != null && (currentEnrollment.getGrade().equals(GRADE_A) || currentEnrollment.getGrade().equals(GRADE_B) || currentEnrollment.getGrade().equals(GRADE_C))) {
-                        passed = true;
-                    }
-                }
-            }
-            if (!passed) {
-                System.out.println("Missing prerequisite");
-                logs.add("Missing prerequisite for " + studentId);
-                return;
-            }
+        if (!hasPassedPrerequisite(studentId, course.getPrerequisite())) {
+            System.out.println("Missing prerequisite");
+            logs.add("Missing prerequisite for " + studentId);
+            return;
         }
 
-        double fee = 0;
-        if (student.getType().equals(TYPE_LOCAL)) {
-            fee = course.getCreditHours() * RATE_LOCAL;
-        } else if (student.getType().equals(TYPE_INTERNATIONAL)) {
-            fee = course.getCreditHours() * RATE_INTERNATIONAL;
-        } else if (student.getType().equals(TYPE_SCHOLARSHIP)) {
-            fee = course.getCreditHours() * RATE_SCHOLARSHIP;
-        } else {
-            fee = course.getCreditHours() * RATE_LOCAL;
-        }
-
-        if (paymentType.equals(PAYMENT_INSTALLMENT)) {
-            fee = fee + FEE_INSTALLMENT;
-        } else if (paymentType.equals(PAYMENT_CARD)) {
-            fee = fee + FEE_CARD;
-        } else if (paymentType.equals(PAYMENT_CASH)) {
-            fee = fee + FEE_CASH;
-        } else {
-            fee = fee + FEE_DEFAULT;
-        }
-
-        if (semester.equals(SEMESTER_SUMMER)) {
-            fee = fee + FEE_SUMMER;
-        }
-
-        if (courseCode.startsWith("SE")) {
-            fee = fee + FEE_SE_COURSE;
-        }
+        double fee = calculateEnrollmentFee(student, course, paymentType, semester);
 
         student.setOutstandingBalance(student.getOutstandingBalance() + fee);
         Enrollment newEnrollment = new Enrollment(studentId, courseCode, semester, course.getDay(), course.getTimeSlot());
@@ -194,13 +226,7 @@ public class UniversitySystem {
                 currentEnrollment.setGrade(grade);
                 System.out.println("Grade assigned");
 
-                double points = 0;
-                if (grade.equals(GRADE_A)) points = POINTS_A;
-                else if (grade.equals(GRADE_B)) points = POINTS_B;
-                else if (grade.equals(GRADE_C)) points = POINTS_C;
-                else if (grade.equals(GRADE_D)) points = POINTS_D;
-                else if (grade.equals(GRADE_F)) points = POINTS_F;
-
+                double points = getGradePoints(grade);
                 Student student = findStudent(studentId);
                 Course course = findCourse(courseCode);
 
@@ -208,17 +234,7 @@ public class UniversitySystem {
                     student.setTotalCompletedCredits(student.getTotalCompletedCredits() + course.getCreditHours());
                     student.setTotalGradePoints(student.getTotalGradePoints() + (points * course.getCreditHours()));
 
-                    if (student.getTotalCompletedCredits() > 0) {
-                        student.setGpa(student.getTotalGradePoints() / student.getTotalCompletedCredits());
-                    }
-
-                    if (student.getGpa() < GPA_PROBATION_THRESHOLD) {
-                        student.setStatus(STATUS_PROBATION);
-                    } else if (student.getGpa() >= GPA_PROBATION_THRESHOLD && student.getGpa() < GPA_HONOR_THRESHOLD) {
-                        student.setStatus(STATUS_GOOD);
-                    } else {
-                        student.setStatus(STATUS_HONOR);
-                    }
+                    updateStudentAcademicStatus(student);
 
                     System.out.println("Updated GPA: " + student.getGpa());
                     System.out.println("Updated Status: " + student.getStatus());
@@ -246,15 +262,7 @@ public class UniversitySystem {
             return;
         }
 
-        if (method.equals(PAYMENT_CARD)) {
-            amount = amount - DISCOUNT_CARD;
-        } else if (method.equals(PAYMENT_BANK)) {
-            amount = amount - DISCOUNT_BANK;
-        } else if (method.equals(PAYMENT_CASH)) {
-            amount = amount - FEE_CASH;
-        } else {
-            amount = amount - DISCOUNT_DEFAULT;
-        }
+        amount = calculateFinalPaymentAmount(amount, method);
 
         student.setOutstandingBalance(student.getOutstandingBalance() - amount);
         if (student.getOutstandingBalance() < 0) {
@@ -275,12 +283,10 @@ public class UniversitySystem {
 
     public void printTranscript(String studentId) {
         Student student = findStudent(studentId);
-
         if (student == null) {
             System.out.println("Student not found");
             return;
         }
-
         System.out.println("----- TRANSCRIPT -----");
         System.out.println("University: " + universityName);
         System.out.println("Name: " + student.getName());
@@ -288,7 +294,6 @@ public class UniversitySystem {
         System.out.println("Department: " + student.getDepartment());
         System.out.println("Status: " + student.getStatus());
         System.out.println("GPA: " + student.getGpa());
-
         for (Enrollment currentEnrollment : enrollments) {
             if (currentEnrollment.getStudentId().equals(studentId)) {
                 String title = "";
@@ -298,11 +303,9 @@ public class UniversitySystem {
                     title = course.getTitle();
                     credits = course.getCreditHours();
                 }
-
                 System.out.println(currentEnrollment.getCourseCode() + " - " + title + " - " + credits + " credits - Grade: " + currentEnrollment.getGrade());
             }
         }
-
         System.out.println("Outstanding Balance: " + student.getOutstandingBalance());
         if (student.getOutstandingBalance() > 0) {
             System.out.println("WARNING: unpaid dues");
@@ -312,14 +315,12 @@ public class UniversitySystem {
     public void printCourseRoster(String courseCode) {
         System.out.println("----- COURSE ROSTER -----");
         Course currentCourse = findCourse(courseCode);
-
         if (currentCourse != null) {
             System.out.println("Course: " + currentCourse.getTitle());
             System.out.println("Instructor: " + currentCourse.getInstructorName());
             System.out.println("Capacity: " + currentCourse.getCapacity());
             System.out.println("Enrolled: " + currentCourse.getEnrolled());
         }
-
         for (Enrollment currentEnrollment : enrollments) {
             if (currentEnrollment.getCourseCode().equals(courseCode)) {
                 Student student = findStudent(currentEnrollment.getStudentId());
@@ -333,13 +334,11 @@ public class UniversitySystem {
     public void printDepartmentSummary(String department) {
         System.out.println("----- DEPARTMENT SUMMARY -----");
         System.out.println("Department: " + department);
-
         int studentCount = 0;
         int instructorCount = 0;
         int courseCount = 0;
         double avgGpa = 0;
         int gpaCount = 0;
-
         for (Student currentStudent : students) {
             if (currentStudent.getDepartment().equals(department)) {
                 studentCount++;
@@ -347,23 +346,19 @@ public class UniversitySystem {
                 gpaCount++;
             }
         }
-
         for (Instructor currentInstructor : instructors) {
             if (currentInstructor.getDepartment().equals(department)) {
                 instructorCount++;
             }
         }
-
         for (Course currentCourse : courses) {
             if (currentCourse.getCode().startsWith(department)) {
                 courseCount++;
             }
         }
-
         if (gpaCount > 0) {
             avgGpa = avgGpa / gpaCount;
         }
-
         System.out.println("Students: " + studentCount);
         System.out.println("Instructors: " + instructorCount);
         System.out.println("Courses: " + courseCount);
