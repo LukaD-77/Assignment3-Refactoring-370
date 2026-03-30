@@ -4,7 +4,11 @@ public class Main {
 
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
+
         UniversitySystem system = new UniversitySystem();
+        NotificationService notificationService = new NotificationService(system);
+        PaymentService paymentService = new PaymentService(system, notificationService);
+        EnrollmentService enrollmentService = new EnrollmentService(system, notificationService);
         LegacyReportPrinter printer = new LegacyReportPrinter();
 
         boolean running = true;
@@ -16,14 +20,14 @@ public class Main {
                 case 1: addStudent(scanner, system); break;
                 case 2: addCourse(scanner, system); break;
                 case 3: addInstructor(scanner, system); break;
-                case 4: enrollStudent(scanner, system); break;
-                case 5: assignGrade(scanner, system); break;
-                case 6: processPayment(scanner, system); break;
+                case 4: enrollStudent(scanner, enrollmentService); break;
+                case 5: assignGrade(scanner, enrollmentService); break;
+                case 6: processPayment(scanner, paymentService); break;
                 case 7: viewTranscript(scanner, system, printer); break;
                 case 8: viewCourseRoster(scanner, system, printer); break;
                 case 9: viewDepartmentSummary(scanner, system, printer); break;
                 case 10:
-                    String result = system.sendWarningLetters();
+                    String result = notificationService.sendWarningLetters();
                     System.out.println(result);
                     break;
                 case 11: printer.printStudents(system.getStudents()); break;
@@ -121,7 +125,7 @@ public class Main {
         System.out.println("Instructor added.");
     }
 
-    private static void enrollStudent(Scanner scanner, UniversitySystem system) {
+    private static void enrollStudent(Scanner scanner, EnrollmentService enrollmentService) {
         System.out.print("Enter Student ID: ");
         String studentId = scanner.nextLine();
         System.out.print("Enter Course Code: ");
@@ -131,11 +135,11 @@ public class Main {
         System.out.print("Enter Payment Type (CARD/CASH/BANK/INSTALLMENT): ");
         String pay = scanner.nextLine();
 
-        String result = system.enrollStudent(studentId, courseCode, semester, pay);
+        String result = enrollmentService.enrollStudent(studentId, courseCode, semester, pay);
         System.out.println(result);
     }
 
-    private static void assignGrade(Scanner scanner, UniversitySystem system) {
+    private static void assignGrade(Scanner scanner, EnrollmentService enrollmentService) {
         System.out.print("Enter Student ID: ");
         String studentId = scanner.nextLine();
         System.out.print("Enter Course Code: ");
@@ -145,11 +149,11 @@ public class Main {
         System.out.print("Enter Grade (A/B/C/D/F): ");
         String grade = scanner.nextLine();
 
-        String result = system.assignGrade(studentId, courseCode, semester, grade);
+        String result = enrollmentService.assignGrade(studentId, courseCode, semester, grade);
         System.out.println(result);
     }
 
-    private static void processPayment(Scanner scanner, UniversitySystem system) {
+    private static void processPayment(Scanner scanner, PaymentService paymentService) {
         System.out.print("Enter Student ID: ");
         String studentId = scanner.nextLine();
         System.out.print("Enter Amount: ");
@@ -157,7 +161,7 @@ public class Main {
         System.out.print("Enter Method (CARD/BANK/CASH): ");
         String paymentMethod = scanner.nextLine();
 
-        String result = system.processPayment(studentId, amount, paymentMethod);
+        String result = paymentService.processPayment(studentId, amount, paymentMethod);
         System.out.println(result);
     }
 
