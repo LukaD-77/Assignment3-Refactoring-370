@@ -64,21 +64,14 @@ public class UniversitySystem {
     public static final double POINTS_D = 1.0;
     public static final double POINTS_F = 0.0;
 
+    private boolean isValidEmail(String email) {
+        return email != null && email.contains("@") && email.contains(".");
+    }
+
     public void enrollStudent(String studentId, String courseCode, String semester, String paymentType) {
-        Student student = null;
-        Course course = null;
-
-        for (Student currentStudent : students) {
-            if (currentStudent.id.equals(studentId)) {
-                student = currentStudent;
-            }
-        }
-
-        for (Course currentCourse : courses) {
-            if (currentCourse.code.equals(courseCode)) {
-                course = currentCourse;
-            }
-        }
+        // STAGE 3 FIX: Replaced massive manual search loops with simple helper method calls
+        Student student = findStudent(studentId);
+        Course course = findCourse(courseCode);
 
         if (student == null) {
             System.out.println("Student not found");
@@ -191,7 +184,7 @@ public class UniversitySystem {
         System.out.println("Fee charged: " + fee);
         logs.add("Enrolled " + studentId + " into " + courseCode);
 
-        if (student.email != null && student.email.contains("@")) {
+        if (isValidEmail(student.email)) {
             System.out.println("Email sent to " + student.email + ": enrolled in " + course.title);
             logs.add("Enrollment email sent");
         } else {
@@ -213,16 +206,8 @@ public class UniversitySystem {
                 else if (grade.equals(GRADE_D)) points = POINTS_D;
                 else if (grade.equals(GRADE_F)) points = POINTS_F;
 
-                Student student = null;
-                Course course = null;
-
-                for (Student currentStudent : students) {
-                    if (currentStudent.id.equals(studentId)) student = currentStudent;
-                }
-
-                for (Course currentCourse : courses) {
-                    if (currentCourse.code.equals(courseCode)) course = currentCourse;
-                }
+                Student student = findStudent(studentId);
+                Course course = findCourse(courseCode);
 
                 if (student != null && course != null) {
                     student.totalCompletedCredits += course.creditHours;
@@ -243,7 +228,8 @@ public class UniversitySystem {
                     System.out.println("Updated GPA: " + student.gpa);
                     System.out.println("Updated Status: " + student.status);
 
-                    if (student.email != null && student.email.contains("@")) {
+                    // STAGE 3 FIX
+                    if (isValidEmail(student.email)) {
                         System.out.println("Email sent to " + student.email + ": grade posted");
                     } else {
                         System.out.println("Could not send grade email");
@@ -254,12 +240,8 @@ public class UniversitySystem {
     }
 
     public void processPayment(String studentId, double amount, String method) {
-        Student student = null;
-        for (Student currentStudent : students) {
-            if (currentStudent.id.equals(studentId)) {
-                student = currentStudent;
-            }
-        }
+        // STAGE 3 FIX: Direct lookup
+        Student student = findStudent(studentId);
 
         if (student == null) {
             System.out.println("Student not found");
@@ -293,18 +275,14 @@ public class UniversitySystem {
         System.out.println("Amount accepted: " + amount);
         System.out.println("Remaining balance: " + student.outstandingBalance);
 
-        if (student.email != null && student.email.contains("@")) {
+        if (isValidEmail(student.email)) {
             System.out.println("Email sent to " + student.email + ": payment received");
         }
     }
 
     public void printTranscript(String studentId) {
-        Student student = null;
-        for (Student currentStudent : students) {
-            if (currentStudent.id.equals(studentId)) {
-                student = currentStudent;
-            }
-        }
+        // STAGE 3 FIX: Direct lookup
+        Student student = findStudent(studentId);
 
         if (student == null) {
             System.out.println("Student not found");
@@ -323,12 +301,12 @@ public class UniversitySystem {
             if (currentEnrollment.studentId.equals(studentId)) {
                 String title = "";
                 int credits = 0;
-                for (Course currentCourse : courses) {
-                    if (currentCourse.code.equals(currentEnrollment.courseCode)) {
-                        title = currentCourse.title;
-                        credits = currentCourse.creditHours;
-                    }
+                Course course = findCourse(currentEnrollment.courseCode);
+                if (course != null) {
+                    title = course.title;
+                    credits = course.creditHours;
                 }
+
                 System.out.println(currentEnrollment.courseCode + " - " + title + " - " + credits + " credits - Grade: " + currentEnrollment.grade);
             }
         }
@@ -341,21 +319,20 @@ public class UniversitySystem {
 
     public void printCourseRoster(String courseCode) {
         System.out.println("----- COURSE ROSTER -----");
-        for (Course currentCourse : courses) {
-            if (currentCourse.code.equals(courseCode)) {
-                System.out.println("Course: " + currentCourse.title);
-                System.out.println("Instructor: " + currentCourse.instructorName);
-                System.out.println("Capacity: " + currentCourse.capacity);
-                System.out.println("Enrolled: " + currentCourse.enrolled);
-            }
+        Course currentCourse = findCourse(courseCode);
+
+        if (currentCourse != null) {
+            System.out.println("Course: " + currentCourse.title);
+            System.out.println("Instructor: " + currentCourse.instructorName);
+            System.out.println("Capacity: " + currentCourse.capacity);
+            System.out.println("Enrolled: " + currentCourse.enrolled);
         }
 
         for (Enrollment currentEnrollment : enrollments) {
             if (currentEnrollment.courseCode.equals(courseCode)) {
-                for (Student currentStudent : students) {
-                    if (currentStudent.id.equals(currentEnrollment.studentId)) {
-                        System.out.println(currentStudent.id + " - " + currentStudent.name + " - " + currentStudent.status);
-                    }
+                Student student = findStudent(currentEnrollment.studentId);
+                if (student != null) {
+                    System.out.println(student.id + " - " + student.name + " - " + student.status);
                 }
             }
         }
@@ -404,7 +381,8 @@ public class UniversitySystem {
     public void sendWarningLetters() {
         for (Student currentStudent : students) {
             if (currentStudent.outstandingBalance > WARNING_BALANCE_THRESHOLD || currentStudent.status.equals(STATUS_PROBATION)) {
-                if (currentStudent.email != null && currentStudent.email.contains("@")) {
+                // STAGE 3 FIX
+                if (isValidEmail(currentStudent.email)) {
                     System.out.println("Sending warning email to " + currentStudent.email);
                     if (currentStudent.outstandingBalance > WARNING_BALANCE_THRESHOLD) {
                         System.out.println("Reason: unpaid balance");

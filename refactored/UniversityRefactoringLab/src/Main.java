@@ -5,6 +5,7 @@ public class Main {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
         UniversitySystem system = new UniversitySystem();
+        LegacyReportPrinter printer = new LegacyReportPrinter();
 
         while (true) {
             System.out.println("\n===== UNIVERSITY SYSTEM =====");
@@ -156,15 +157,12 @@ public class Main {
                 system.sendWarningLetters();
 
             } else if (choice == 11) {
-                LegacyReportPrinter printer = new LegacyReportPrinter();
                 printer.printStudents(system.students);
 
             } else if (choice == 12) {
-                LegacyReportPrinter printer = new LegacyReportPrinter();
                 printer.printCourses(system.courses);
 
             } else if (choice == 13) {
-                LegacyReportPrinter printer = new LegacyReportPrinter();
                 printer.printPayments(system.payments);
 
             } else if (choice == 14) {
